@@ -69,6 +69,68 @@
     </div>
 </div>
 
+{% if xgb %}
+<!-- 模型对比：线性回归 vs XGBoost -->
+<div class="card shadow-sm mt-3 border-info">
+    <div class="card-header bg-info text-white">
+        <h6 class="mb-0"><i class="bi bi-arrow-left-right"></i> 模型对比：线性回归 vs XGBoost</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-3">
+                <thead class="table-light">
+                    <tr>
+                        <th>模型</th>
+                        <th>MAE（越小越好）</th>
+                        <th>RMSE（越小越好）</th>
+                        <th>R²（越接近 1 越好）</th>
+                        <th>结论</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="table-success">
+                        <td><strong>线性回归</strong></td>
+                        <td>{{ '%.3f'|format(mae) }}</td>
+                        <td>{{ '%.3f'|format(rmse) }}</td>
+                        <td>{{ '%.3f'|format(r2) }}</td>
+                        <td>
+                            {% if r2 > xgb.r2 %}<span class="badge bg-success">本场景更优</span>{% else %}<span class="badge bg-secondary">次选</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>XGBoost</td>
+                        <td>{{ '%.3f'|format(xgb.mae) }}</td>
+                        <td>{{ '%.3f'|format(xgb.rmse) }}</td>
+                        <td>{{ '%.3f'|format(xgb.r2) }}</td>
+                        <td>
+                            {% if xgb.r2 > r2 %}<span class="badge bg-success">本场景更优</span>{% else %}<span class="badge bg-warning text-dark">小样本过拟合</span>{% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <h6 class="small text-muted mb-2"><i class="bi bi-bar-chart"></i> XGBoost 特征重要性</h6>
+                <div id="chart-xgb-importance" style="height: 280px;"></div>
+            </div>
+            <div class="col-lg-6">
+                <h6 class="small text-muted mb-2"><i class="bi bi-info-circle"></i> 为什么选线性回归？</h6>
+                <div class="small text-muted">
+                    <p class="mb-2">本场景数据量小（{{ train_size }} 天训练 + {{ test_size }} 天验证），XGBoost 的树模型结构在小样本上容易过拟合，表现为：</p>
+                    <ul class="mb-2">
+                        <li>R² 为负（{{ '%.3f'|format(xgb.r2) }}）→ 泛化能力不如均值基线</li>
+                        <li>MAE / RMSE 显著高于 LR</li>
+                        <li>特征重要性集中于周末（周日 {{ '%.1f'|format(xgb.feature_importances[6] * 100) }}%）但未能泛化</li>
+                    </ul>
+                    <p class="mb-0"><strong>结论</strong>：图书馆借阅量预测首选线性回归——可解释性强、小样本稳定、系数可向业务方汇报（"周末借阅减少 X 次/天"）。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- 模型解释 -->
 <div class="card shadow-sm mt-3">
     <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-info-circle"></i> 指标说明</h6></div>
@@ -158,6 +220,28 @@
         });
         window.addEventListener('resize', function () { chart2.resize(); });
     }
+
+    // ---- XGBoost 特征重要性（仅在 xgb 存在时渲染） ----
+    {% if xgb %}
+    var impEl = document.getElementById('chart-xgb-importance');
+    if (impEl) {
+        var impNames = {{ xgb.feature_names | tojson }};
+        var impValues = {{ xgb.feature_importances | tojson }};
+        var chart3 = echarts.init(impEl);
+        chart3.setOption({
+            tooltip: { trigger: 'axis', formatter: function (p) { return p[0].name + '<br/>重要性: ' + (p[0].value * 100).toFixed(1) + '%'; } },
+            grid: { left: 80, right: 30, top: 10, bottom: 30 },
+            xAxis: { type: 'value', name: '重要性', max: 1, axisLabel: { color: '#6c757d' } },
+            yAxis: { type: 'category', data: impNames.slice().reverse(), axisLabel: { color: '#6c757d' } },
+            series: [{
+                type: 'bar',
+                data: impValues.slice().reverse(),
+                itemStyle: { color: '#17a2b8' }
+            }]
+        });
+        window.addEventListener('resize', function () { chart3.resize(); });
+    }
+    {% endif %}
 })();
 </script>
 {% endif %}

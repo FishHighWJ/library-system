@@ -49,3 +49,6 @@ build/
 dist/
 *.spec
 *.bat
+
+# Generated scripts cache
+scripts/__pycache__/

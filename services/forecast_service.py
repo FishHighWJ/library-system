@@ -270,9 +270,75 @@ def evaluate_model(history_days=90, test_ratio=0.2):
     }
 
 
+def _evaluate_xgb(X_train, y_train, X_test, y_test):
+    """
+    用 XGBoost 训练并评估，返回 MAE/RMSE/R² 和预测值。
+
+    设计决策（面试可辩护）：
+    - 树模型在小样本下容易过拟合，用保守超参（n_estimators=80, max_depth=3）
+    - 不做网格搜索：数据量太小，CV 调参比 LR 多花的时间成本不值
+    - 用作对比基线，证明 LR 在本场景的选择合理
+    """
+    from xgboost import XGBRegressor
+    model = XGBRegressor(
+        n_estimators=80,
+        max_depth=3,
+        learning_rate=0.1,
+        random_state=42,
+        n_jobs=1,
+    )
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    y_pred = np.maximum(y_pred, 0)
+
+    residuals = y_test - y_pred
+    mae = float(np.mean(np.abs(residuals)))
+    rmse = float(np.sqrt(np.mean(residuals ** 2)))
+    ss_res = float(np.sum(residuals ** 2))
+    ss_tot = float(np.sum((y_test - np.mean(y_test)) ** 2))
+    r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+
+    return {
+        "mae": mae, "rmse": rmse, "r2": r2,
+        "y_pred": y_pred.tolist(),
+        "feature_importances": model.feature_importances_.tolist(),
+    }
+
+
 def get_evaluation_overview(history_days=90):
-    """路由门面：评估数据 + 元信息。"""
-    result = evaluate_model(history_days=history_days)
-    if "error" in result:
-        return {"error": result["error"]}
-    return result
+    """路由门面：评估数据（LR + XGBoost 对比）+ 元信息。"""
+    daily = get_daily_counts(history_days)
+    if len(daily) < 20:
+        return {"error": f"数据不足，评估至少需要 20 天借阅记录（当前 {len(daily)} 天）"}
+
+    X, y = _build_feature_matrix(daily)
+    test_ratio = 0.2
+    split = int(len(X) * (1 - test_ratio))
+    if split < 14:
+        return {"error": "训练集不足 14 天，无法评估"}
+
+    X_train, X_test = X[:split], X[split:]
+    y_train, y_test = y[:split], y[split:]
+
+    # 线性回归评估
+    lr_result = evaluate_model(history_days=history_days)
+    if "error" in lr_result:
+        return lr_result
+
+    # XGBoost 评估（同一份训练/测试集）
+    try:
+        xgb_result = _evaluate_xgb(X_train, y_train, X_test, y_test)
+        lr_result["xgb"] = xgb_result
+        # 特征重要性对应的名字
+        feature_names = ["趋势(天)"] + WEEKDAY_LABELS[1:]
+        lr_result["xgb"]["feature_names"] = feature_names
+        # XGBoost 散点（实际 vs 预测）
+        lr_result["xgb"]["scatter"] = [
+            {"value": [float(a), float(p)], "name": d["date"]}
+            for a, p, d in zip(y_test, xgb_result["y_pred"], daily[split:])
+        ]
+    except ImportError:
+        # xgboost 未安装时静默降级，仅展示 LR
+        pass
+
+    return lr_result

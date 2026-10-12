@@ -13,6 +13,8 @@ Werkzeug>=2.0
 scikit-learn>=1.3
 numpy>=1.24
 pandas>=2.0
+# XGBoost 用于模型对比基线（与线性回归并排展示）
+xgboost>=1.7
 
 # 开发/测试依赖
 pytest>=7.0

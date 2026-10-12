@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}成就中心 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+{# 颜色名映射到 hex，兼容 icon_color 为 Bootstrap 颜色名或 hex 值 #}
+{% set color_map = {'primary': '#0d6efd', 'success': '#198754', 'danger': '#dc3545',
+                    'warning': '#ffc107', 'info': '#0dcaf0', 'secondary': '#6c757d',
+                    'light': '#f8f9fa', 'dark': '#212529', 'orange': '#fd7e14'} %}
+
+<h3 class="mb-4"><i class="bi bi-trophy-fill text-warning"></i> 成就中心</h3>
+
+<!-- ===== 用户状态卡片 ===== -->
+<div class="card shadow-sm mb-4 border-0 ach-status-card">
+    <div class="card-body p-4">
+        <div class="row align-items-center">
+            <!-- 左侧：等级徽章 + 称号 -->
+            <div class="col-lg-3 text-center text-lg-start mb-3 mb-lg-0">
+                <div class="d-flex align-items-center justify-content-center justify-content-lg-start">
+                    <div class="ach-level-badge d-flex align-items-center justify-content-center rounded-circle bg-primary text-white fw-bold"
+                         style="width: 92px; height: 92px;">
+                        <span class="display-5">Lv.{{ stat.level }}</span>
+                    </div>
+                    <div class="ms-3 text-lg-start text-center">
+                        <div class="text-muted small mb-1"><i class="bi bi-award"></i> 当前称号</div>
+                        <h4 class="mb-0 text-primary fw-bold">{{ stat.title }}</h4>
+                    </div>
+                </div>
+            </div>
+            <!-- 中间：经验值进度 -->
+            <div class="col-lg-5 mb-3 mb-lg-0">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small"><i class="bi bi-lightning-charge-fill"></i> 经验值进度</span>
+                    <span class="small fw-medium">{{ stat.exp }} / {{ stat.next_level_exp }} EXP</span>
+                </div>
+                <div class="progress ach-exp-bar" style="height: 16px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                         role="progressbar"
+                         style="width: {{ stat.exp_progress }}%;"
+                         aria-valuenow="{{ stat.exp_progress }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                        {{ stat.exp_progress }}%
+                    </div>
+                </div>
+                <div class="mt-2 text-muted small">
+                    距离下一级还需 <strong class="text-primary">{{ stat.next_level_exp - stat.exp }}</strong> 经验值
+                </div>
+            </div>
+            <!-- 右侧：成就完成度 -->
+            <div class="col-lg-4">
+                <div class="ach-overview-box p-3 rounded-3 h-100 d-flex flex-column justify-content-center">
+                    <div class="d-flex align-items-baseline justify-content-center">
+                        <span class="display-5 fw-bold text-primary">{{ earned_count }}</span>
+                        <span class="text-muted ms-1">/ {{ total_count }}</span>
+                    </div>
+                    <div class="text-muted small text-center mb-2">已解锁成就 / 总数</div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success"
+                             role="progressbar"
+                             style="width: {{ (earned_count / total_count * 100) if total_count > 0 else 0 }}%;"
+                             aria-valuenow="{{ earned_count }}"
+                             aria-valuemin="0"
+                             aria-valuemax="{{ total_count }}">
+                        </div>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="badge bg-success bg-opacity-10 text-success">
+                            完成度 {{ '%.1f'|format(earned_count / total_count * 100) if total_count > 0 else 0 }}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-3">
+
+        <!-- 阅读统计指标 -->
+        <div class="row g-2 text-center">
+            <div class="col-6 col-md-3">
+                <div class="ach-stat-tile p-2 rounded-3">
+                    <i class="bi bi-journal-bookmark-fill text-primary"></i>
+                    <div class="ach-stat-num">{{ stat.total_books_borrowed }}</div>
+                    <div class="ach-stat-label">累计借阅数</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="ach-stat-tile p-2 rounded-3">
+                    <i class="bi bi-grid-3x3-gap-fill text-info"></i>
+                    <div class="ach-stat-num">{{ stat.total_categories_read }}</div>
+                    <div class="ach-stat-label">涉猎分类数</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="ach-stat-tile p-2 rounded-3">
+                    <i class="bi bi-clock-check-fill text-success"></i>
+                    <div class="ach-stat-num">{{ stat.on_time_return_rate|round(1) }}%</div>
+                    <div class="ach-stat-label">按时归还率</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="ach-stat-tile p-2 rounded-3">
+                    <i class="bi bi-fire text-danger"></i>
+                    <div class="ach-stat-num">{{ stat.current_streak }}<small class="text-muted"> 天</small></div>
+                    <div class="ach-stat-label">连续借阅天数</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 成就总览统计条 ===== -->
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-body p-3">
+        <div class="row align-items-center text-center g-2">
+            <div class="col-md-3">
+                <div class="text-muted small">总成就数</div>
+                <div class="h4 mb-0 fw-bold">{{ total_count }}</div>
+            </div>
+            <div class="col-md-3 border-start">
+                <div class="text-muted small">已解锁数</div>
+                <div class="h4 mb-0 fw-bold text-success">{{ earned_count }}</div>
+            </div>
+            <div class="col-md-3 border-start">
+                <div class="text-muted small">未解锁数</div>
+                <div class="h4 mb-0 fw-bold text-secondary">{{ total_count - earned_count }}</div>
+            </div>
+            <div class="col-md-3 border-start">
+                <div class="text-muted small">完成百分比</div>
+                <div class="h4 mb-0 fw-bold text-primary">
+                    {{ '%.1f'|format(earned_count / total_count * 100) if total_count > 0 else 0 }}%
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- ===== 成就分类展示区 ===== -->
+    <div class="col-lg-8">
+        {% for cat_key, category in categories.items() %}
+        {% set cat_earned = category['items']|selectattr('earned')|list|length %}
+        <div class="card shadow-sm mb-3 border-0">
+            <!-- 分类标题栏 -->
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">
+                    <i class="bi bi-{{ category.icon }} text-primary me-2"></i>
+                    {{ category.name }}
+                </h6>
+                <span class="badge bg-primary bg-opacity-10 text-primary">
+                    {{ cat_earned }} / {{ category['items']|length }}
+                </span>
+            </div>
+            <!-- 成就卡片网格 -->
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for item in category['items'] %}
+                    {% set icon_hex = color_map.get(item.icon_color, item.icon_color) %}
+                    <div class="col-6 col-md-4 col-xl-3">
+                        <div class="card h-100 achievement-card border-0 shadow-sm position-relative
+                                    {% if not item.earned %}ach-locked{% endif %}"
+                             style="{% if item.earned %}border-top: 4px solid {{ icon_hex }} !important; background: linear-gradient(180deg, {{ icon_hex }}14 0%, #ffffff 65%);{% endif %}">
+                            <!-- 已获得标记 -->
+                            {% if item.earned %}
+                            <div class="position-absolute top-0 end-0 m-2">
+                                <span class="badge bg-success rounded-pill px-2"><i class="bi bi-check-lg"></i></span>
+                            </div>
+                            {% endif %}
+                            <div class="card-body text-center p-3">
+                                <!-- 成就图标 -->
+                                <div class="mb-2">
+                                    <i class="bi bi-{{ item.icon }}"
+                                       style="font-size: 2.4rem; color: {{ icon_hex if item.earned else '#adb5bd' }};"></i>
+                                </div>
+                                <!-- 成就名称 -->
+                                <h6 class="card-title mb-1 small fw-bold">{{ item.name }}</h6>
+                                <!-- 成就描述 -->
+                                <p class="card-text text-muted small mb-0 ach-desc">{{ item.description }}</p>
+                            </div>
+                            <!-- 底部：稀有度 + 奖励 -->
+                            <div class="card-footer bg-white border-0 px-3 pb-3 pt-0">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    {% if item.rarity == 'legendary' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-stars"></i> 传说</span>
+                                    {% elif item.rarity == 'epic' %}
+                                    <span class="badge text-white" style="background-color:#9333ea;"><i class="bi bi-gem"></i> 史诗</span>
+                                    {% elif item.rarity == 'rare' %}
+                                    <span class="badge bg-primary"><i class="bi bi-award"></i> 稀有</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">普通</span>
+                                    {% endif %}
+                                    <span class="text-primary small fw-medium">
+                                        <i class="bi bi-lightning-charge-fill"></i> +{{ item.reward_exp }}
+                                    </span>
+                                </div>
+                                {% if item.earned and item.earned_at %}
+                                <div class="text-center text-muted small">
+                                    <i class="bi bi-clock"></i> {{ item.earned_at.strftime('%Y-%m-%d') }}
+                                </div>
+                                {% elif item.earned %}
+                                <div class="text-center text-success small">
+                                    <i class="bi bi-check2-circle"></i> 已解锁
+                                </div>
+                                {% else %}
+                                <div class="text-center text-muted small">
+                                    <i class="bi bi-lock"></i> 未解锁
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- ===== 右侧：最新获得 ===== -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 sticky-top" style="top: 1rem;">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> 最新获得的成就</h6>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_achievements %}
+                <div class="list-group list-group-flush">
+                    {% for ach in recent_achievements %}
+                    {% set rc_hex = color_map.get(ach.icon_color, ach.icon_color) %}
+                    <div class="list-group-item border-0 py-3">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width: 46px; height: 46px; background: {{ rc_hex }}22;">
+                                    <i class="bi bi-{{ ach.icon }}" style="font-size: 1.3rem; color: {{ rc_hex }};"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="mb-1 small fw-bold">{{ ach.name }}</h6>
+                                    <span class="badge bg-success ms-2"><i class="bi bi-check2"></i></span>
+                                </div>
+                                <p class="mb-1 text-muted small">{{ ach.description }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-primary">
+                                        <i class="bi bi-lightning-charge-fill"></i> +{{ ach.reward_exp }} 经验
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock"></i>
+                                        {{ ach.earned_at.strftime('%Y-%m-%d %H:%M') if ach.earned_at else '' }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-trophy" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                    <p class="mt-2 mb-0 small">暂无获得的成就</p>
+                    <p class="small">快去借阅图书解锁吧！</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 等级徽章渐变 */
+.ach-level-badge {
+    background: linear-gradient(135deg, #4361ee, #7c3aed) !important;
+    box-shadow: 0 4px 12px rgba(67, 97, 238, .3);
+}
+/* 经验进度条圆角 */
+.ach-exp-bar {
+    border-radius: 8px;
+    overflow: hidden;
+}
+.ach-exp-bar .progress-bar {
+    border-radius: 8px;
+}
+/* 完成度概览框 */
+.ach-overview-box {
+    background: linear-gradient(135deg, #eef2ff, #f8f9fa);
+    border: 1px solid #e9ecef;
+}
+/* 阅读统计小方块 */
+.ach-stat-tile {
+    background: #f8f9fa;
+    border: 1px solid #eef0f3;
+    transition: transform .15s ease;
+}
+.ach-stat-tile:hover {
+    transform: translateY(-2px);
+}
+.ach-stat-tile i {
+    font-size: 1.3rem;
+}
+.ach-stat-num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+.ach-stat-label {
+    font-size: .75rem;
+    color: #6c757d;
+}
+/* 成就卡片 */
+.achievement-card {
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+.achievement-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .12) !important;
+}
+.ach-locked {
+    opacity: .5;
+    filter: grayscale(80%);
+}
+.ach-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.4em;
+}
+</style>
+{% endblock %}

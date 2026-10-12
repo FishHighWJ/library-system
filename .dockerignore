@@ -1,0 +1,35 @@
+# Docker 构建忽略文件（避免把无用文件拷进镜像）
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# 虚拟环境
+venv/
+env/
+.venv/
+ENV/
+
+# 版本控制
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# 数据库与日志（运行时生成，不应进镜像）
+library.db
+library.db-journal
+library.log
+*.log
+
+# 文档与测试（镜像只跑应用，不需要测试代码）
+tests/
+*.md
+.trae/

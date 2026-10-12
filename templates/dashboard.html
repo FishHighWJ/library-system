@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}数据看板 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<!-- 标记页面，供 main.js 选择性 fetch 刷新 -->
+<div class="dashboard-page">
+<h3 class="mb-4"><i class="bi bi-speedometer2"></i> 数据看板</h3>
+
+<!-- 统计卡片 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-2">
+        <div class="card stat-card shadow-sm border-start border-4 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">图书种类</div>
+                        <div class="h4 mb-0" data-stat="total_books">{{ stats.total_books }}</div>
+                    </div>
+                    <i class="bi bi-book text-primary" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="card stat-card shadow-sm border-start border-4 border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">馆藏总量</div>
+                        <div class="h4 mb-0" data-stat="total_copies">{{ stats.total_copies }}</div>
+                    </div>
+                    <i class="bi bi-collection text-success" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="card stat-card shadow-sm border-start border-4 border-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">借出数量</div>
+                        <div class="h4 mb-0" data-stat="borrowed_count">{{ stats.borrowed_count }}</div>
+                    </div>
+                    <i class="bi bi-journal-arrow-down text-warning" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="card stat-card shadow-sm border-start border-4 border-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">注册用户</div>
+                        <div class="h4 mb-0" data-stat="total_users">{{ stats.total_users }}</div>
+                    </div>
+                    <i class="bi bi-people text-info" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="card stat-card shadow-sm border-start border-4 border-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">逾期记录</div>
+                        <div class="h4 mb-0" data-stat="overdue_count">{{ stats.overdue_count }}</div>
+                    </div>
+                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="card stat-card shadow-sm border-start border-4 border-secondary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">今日活跃</div>
+                        <div class="h4 mb-0" data-stat="active_today">{{ stats.active_today }}</div>
+                    </div>
+                    <i class="bi bi-lightning text-secondary" style="font-size: 1.8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 行1：7天借阅趋势（line） + 分类借阅分布（pie） -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-graph-up"></i> 近 7 天借阅趋势</h6>
+                <span class="badge text-muted">单位：次 / 天</span>
+            </div>
+            <div class="card-body">
+                <div id="chart-trend" style="height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-pie-chart"></i> 分类借阅分布</h6>
+            </div>
+            <div class="card-body">
+                <div id="chart-category" style="height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 行2：热门借阅 TOP5（horizontal bar） + 逾期情况 -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-fire"></i> 热门借阅 TOP 5</h6>
+            </div>
+            <div class="card-body">
+                <div id="chart-popular" style="height: 300px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> 逾期情况</h6>
+                {% if stats.overdue_count > 0 %}
+                <span class="badge bg-danger">{{ stats.overdue_count }} 条逾期</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if stats.overdue_count > 0 %}
+                <div class="alert alert-danger mb-2">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    当前有 <strong>{{ stats.overdue_count }}</strong> 条逾期未还记录，请及时处理！
+                </div>
+                <a href="{{ url_for('borrow.all_records') }}" class="btn btn-outline-danger btn-sm w-100">
+                    <i class="bi bi-arrow-right"></i> 查看借阅记录
+                </a>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-check-circle" style="font-size: 3rem;"></i>
+                    <p class="mt-2 mb-0">暂无逾期记录，一切正常！</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 行3：近期借阅动态（表格） -->
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white">
+        <h6 class="mb-0"><i class="bi bi-clock-history"></i> 近期借阅动态</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>读者</th>
+                    <th>书名</th>
+                    <th>借阅日期</th>
+                    <th>应还日期</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in recent_records %}
+                <tr>
+                    <td>{{ r.user.username }}</td>
+                    <td>{{ r.book.title }}</td>
+                    <td>{{ r.borrow_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ r.due_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if r.status == 'returned' %}
+                        <span class="badge bg-success">已归还</span>
+                        {% elif r.is_overdue %}
+                        <span class="badge bg-danger">逾期</span>
+                        {% else %}
+                        <span class="badge bg-primary">借阅中</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-3">暂无记录</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 行4：近期操作日志（表格） -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h6 class="mb-0"><i class="bi bi-clipboard-data"></i> 近期操作日志</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>时间</th>
+                    <th>操作人</th>
+                    <th>动作</th>
+                    <th>详情</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td class="small">{{ log.created_at.strftime('%m-%d %H:%M') }}</td>
+                    <td>{{ log.operator.username if log.operator else '系统' }}</td>
+                    <td><span class="badge bg-secondary">{{ log.action }}</span></td>
+                    <td class="small text-muted">{{ log.detail or '' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">暂无日志</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ECharts 看板初始化：后端 Jinja tojson 注入初始数据，之后由 main.js fetch 局部刷新
+(function () {
+    {% set initial_data = {'stats': stats, 'popular_books': popular_books, 'trend_data': trend_data, 'category_stats': category_stats} %}
+    var initialData = {{ initial_data | tojson }};
+
+    var charts = {};
+
+    function renderTrend(data) {
+        var el = document.getElementById('chart-trend');
+        if (!el) return;
+        if (!charts.trend) charts.trend = echarts.init(el);
+        charts.trend.setOption({
+            tooltip: { trigger: 'axis' },
+            grid: { left: 40, right: 20, top: 20, bottom: 30 },
+            xAxis: {
+                type: 'category',
+                data: data.map(function (d) { return d.date; }),
+                axisLabel: { color: '#6c757d' }
+            },
+            yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#6c757d' } },
+            series: [{
+                name: '借阅次数',
+                type: 'line',
+                smooth: true,
+                data: data.map(function (d) { return d.count; }),
+                itemStyle: { color: '#0d6efd' },
+                areaStyle: { color: 'rgba(13,110,253,0.15)' },
+                label: { show: true, position: 'top' }
+            }]
+        });
+    }
+
+    function renderCategory(data) {
+        var el = document.getElementById('chart-category');
+        if (!el) return;
+        if (!charts.category) charts.category = echarts.init(el);
+        charts.category.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} 本 ({d}%)' },
+            legend: { type: 'scroll', orient: 'horizontal', bottom: 0 },
+            series: [{
+                name: '馆藏分布',
+                type: 'pie',
+                radius: ['35%', '65%'],
+                center: ['50%', '45%'],
+                data: data.map(function (c) {
+                    return { name: c.name, value: c.total_copies };
+                }),
+                label: { formatter: '{b}\n{c} 本', fontSize: 11 }
+            }]
+        });
+    }
+
+    function renderPopular(data) {
+        var el = document.getElementById('chart-popular');
+        if (!el) return;
+        if (!charts.popular) charts.popular = echarts.init(el);
+        // ECharts 横向条形图：x 轴是值，y 轴是类目，倒序让 TOP1 在最上
+        var reversed = data.slice().reverse();
+        charts.popular.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { left: 120, right: 40, top: 20, bottom: 30 },
+            xAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#6c757d' } },
+            yAxis: {
+                type: 'category',
+                data: reversed.map(function (d) { return d.title; }),
+                axisLabel: { color: '#495057', width: 110, overflow: 'truncate' }
+            },
+            series: [{
+                name: '借阅次数',
+                type: 'bar',
+                data: reversed.map(function (d) { return d.times; }),
+                itemStyle: {
+                    color: function (p) {
+                        // 前三名红/橙，其余蓝
+                        var idx = reversed.length - 1 - p.dataIndex;
+                        return idx === 0 ? '#dc3545' : (idx === 1 ? '#fd7e14' : (idx === 2 ? '#ffc107' : '#0d6efd'));
+                    }
+                },
+                label: { show: true, position: 'right' }
+            }]
+        });
+    }
+
+    function updateStats(stats) {
+        Object.keys(stats).forEach(function (k) {
+            var el = document.querySelector('[data-stat="' + k + '"]');
+            if (el) el.textContent = stats[k];
+        });
+    }
+
+    // 暴露给 main.js，供 fetch 后调用
+    window.__dashboard = {
+        update: function (data) {
+            if (!data) return;
+            if (data.stats) updateStats(data.stats);
+            if (data.trend_data) renderTrend(data.trend_data);
+            if (data.category_stats) renderCategory(data.category_stats);
+            if (data.popular_books) renderPopular(data.popular_books);
+        }
+    };
+
+    // 首次渲染
+    window.__dashboard.update(initialData);
+
+    // 窗口 resize 时重绘图表
+    window.addEventListener('resize', function () {
+        Object.keys(charts).forEach(function (k) { charts[k].resize(); });
+    });
+})();
+</script>
+{% endblock %}

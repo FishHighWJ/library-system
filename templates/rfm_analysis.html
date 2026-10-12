@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}RFM 用户分群 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<h3 class="mb-3"><i class="bi bi-people-fill"></i> RFM 用户分群</h3>
+<p class="text-muted small mb-4">
+    将电商 RFM 模型迁移到图书馆场景：<strong>R</strong>=最近借阅距今天数，
+    <strong>F</strong>=累计借阅次数，<strong>M</strong>=借阅涉猎分类数（替代货币维度）。
+</p>
+
+{% if not_ready %}
+<div class="alert alert-info">该模块正在开发中，稍后开放。</div>
+{% else %}
+{% set not_ready = false %}
+
+<!-- 分群汇总卡片 -->
+<div class="row g-2 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-2">
+                <div class="text-muted small">总用户</div>
+                <div class="h4 mb-0">{{ totals.users }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card text-center shadow-sm border-start border-4 border-success">
+            <div class="card-body py-2">
+                <div class="text-muted small">活跃读者</div>
+                <div class="h4 mb-0">{{ totals.active }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card text-center shadow-sm border-start border-4 border-secondary">
+            <div class="card-body py-2">
+                <div class="text-muted small">未借阅</div>
+                <div class="h4 mb-0">{{ totals.inactive }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card text-center shadow-sm border-start border-4 border-primary">
+            <div class="card-body py-2">
+                <div class="text-muted small">分群数</div>
+                <div class="h4 mb-0">{{ pie_data | length }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 行1：scatter 散点图 + pie 饼图 -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-diagram-3"></i> 用户分群散点图
+                    <span class="text-muted small ms-2">X=Recency(天) Y=Frequency(次) 气泡大小=Breadth</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="chart-rfm-scatter" style="height: 380px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-pie-chart"></i> 分群人数占比</h6>
+            </div>
+            <div class="card-body">
+                <div id="chart-rfm-pie" style="height: 380px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 行2：分群说明 + 用户表格 -->
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> 分群含义</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>分群</th><th>说明</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for name, meta in segment_meta.items() %}
+                        <tr>
+                            <td>
+                                <span class="badge" style="background-color: {{ meta.color }};">{{ name }}</span>
+                            </td>
+                            <td class="small text-muted">{{ meta.desc }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-table"></i> 用户分群明细</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>用户</th>
+                            <th>R(天)</th>
+                            <th>F(次)</th>
+                            <th>M(类)</th>
+                            <th>最近借阅</th>
+                            <th>分群</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in table_data %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('auth.profile') }}">{{ u.username }}</a>
+                            </td>
+                            <td>{{ u.R }}</td>
+                            <td>{{ u.F }}</td>
+                            <td>{{ u.M }}</td>
+                            <td class="small">{{ u.last_borrow }}</td>
+                            <td>
+                                <span class="badge" style="background-color: {{ u.segment_color }};">{{ u.segment }}</span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center text-muted py-3">暂无数据</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 召回闭环：效果对比 + 动作清单 -->
+<div class="row g-3 mt-1">
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-graph-up-arrow"></i> 召回效果分析</h6>
+            </div>
+            <div class="card-body small">
+                <p class="mb-2 text-muted">对比最近 {{ recall_effect.window_days }} 天借阅率（人均借阅次数）</p>
+                <table class="table table-sm mb-2">
+                    <tr>
+                        <td><span class="badge bg-danger">召回目标</span></td>
+                        <td>{{ recall_effect.target_count }} 人</td>
+                        <td class="text-end">{{ recall_effect.target_rate }} 次/人</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge bg-success">高价值</span></td>
+                        <td>{{ recall_effect.champion_count }} 人</td>
+                        <td class="text-end">{{ recall_effect.champion_rate }} 次/人</td>
+                    </tr>
+                    <tr class="table-warning">
+                        <td colspan="2"><strong>召回空间</strong></td>
+                        <td class="text-end"><strong>{{ recall_effect.gap }} 次/人</strong></td>
+                    </tr>
+                </table>
+                <p class="mb-0 text-muted">
+                    若能把召回目标拉到高价值水平，近期借阅量可提升
+                    <strong class="text-success">{{ recall_effect.lift_pct }}%</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-megaphone"></i> 召回动作清单
+                    <span class="text-muted small ms-2">基于历史借阅分类的个性化推荐</span>
+                </h6>
+                <form method="post" action="{{ url_for('analysis.rfm_recall') }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-warning"
+                            onclick="return confirm('确认向 {{ recall_actions|length }} 位用户发送召回通知？')">
+                        <i class="bi bi-send"></i> 一键发送召回
+                    </button>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th>用户</th><th>分群</th><th>召回理由</th><th>推荐书单</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for a in recall_actions %}
+                        <tr>
+                            <td>{{ a.username }}</td>
+                            <td><span class="badge bg-secondary">{{ a.segment }}</span></td>
+                            <td class="small text-muted">{{ a.reason }}</td>
+                            <td class="small">
+                                {% for b in a.recommended_books %}
+                                <span class="badge bg-light text-dark border">{{ b.title }}</span>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">无召回目标（缺少 At-risk/Lost/Inactive 用户）</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if not not_ready %}
+<script>
+(function () {
+    var scatterData = {{ scatter_data | tojson }};
+    var pieData = {{ pie_data | tojson }};
+
+    // ---- Scatter：X=Recency Y=Frequency 气泡大小=Breadth ----
+    var elS = document.getElementById('chart-rfm-scatter');
+    if (elS) {
+        var chartS = echarts.init(elS);
+        // 按分群分组数据，便于 legend 切换
+        var grouped = {};
+        scatterData.forEach(function (item) {
+            var seg = item.segment;
+            if (!grouped[seg]) grouped[seg] = [];
+            grouped[seg].push([item.value[0], item.value[1], item.value[2], item.name, item.user_id]);
+        });
+        var series = Object.keys(grouped).map(function (seg) {
+            return {
+                name: seg,
+                type: 'scatter',
+                data: grouped[seg],
+                symbolSize: function (d) { return 10 + d[2] * 4; },
+                itemStyle: { opacity: 0.75 }
+            };
+        });
+        chartS.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: function (p) {
+                    return p.data[3] + '<br/>R: ' + p.data[0] + ' 天<br/>F: ' + p.data[1] + ' 次<br/>M: ' + p.data[2] + ' 类';
+                }
+            },
+            legend: { type: 'scroll', bottom: 0 },
+            grid: { left: 50, right: 30, top: 30, bottom: 50 },
+            xAxis: { name: 'Recency(天)', nameLocation: 'middle', nameGap: 28, type: 'value', inverse: true, minInterval: 1, axisLabel: { color: '#6c757d' } },
+            yAxis: { name: 'Frequency(次)', type: 'value', minInterval: 1, axisLabel: { color: '#6c757d' } },
+            series: series
+        });
+        window.addEventListener('resize', function () { chartS.resize(); });
+    }
+
+    // ---- Pie：分群人数占比 ----
+    var elP = document.getElementById('chart-rfm-pie');
+    if (elP) {
+        var chartP = echarts.init(elP);
+        chartP.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
+            legend: { type: 'scroll', orient: 'horizontal', bottom: 0 },
+            series: [{
+                name: '用户分群',
+                type: 'pie',
+                radius: ['35%', '65%'],
+                center: ['50%', '45%'],
+                data: pieData,
+                label: { formatter: '{b}\n{c} 人', fontSize: 11 }
+            }]
+        });
+        window.addEventListener('resize', function () { chartP.resize(); });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+# 图书馆管理系统 - Docker Compose
+# 一键启动：docker-compose up --build
+# 数据持久化：library.db 挂载到宿主机 ./data/library.db
+services:
+  library:
+    build: .
+    container_name: library-system
+    ports:
+      - "5000:5000"
+    volumes:
+      # 数据库文件挂载到宿主机，避免容器重建丢数据
+      - ./data:/app/data
+    environment:
+      - FLASK_CONFIG=production
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env, see .env.example}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env, see .env.example}
+      - READER_PASSWORD=${READER_PASSWORD:-change-me-please}
+      # 数据库写到挂载目录，容器重建不丢数据
+      - DATABASE_URL=sqlite:///data/library.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/login')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

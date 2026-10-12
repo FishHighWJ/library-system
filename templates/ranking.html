@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}借阅排行榜 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-bar-chart-line-fill text-primary"></i> 借阅排行榜</h3>
+
+<!-- ===== 我的排名卡片（顶部） ===== -->
+{% if current_user.is_authenticated %}
+<div class="card shadow-sm border-0 mb-4 rank-my-card">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-person-circle text-primary"></i> 我的排名</h6>
+        <span class="text-muted small">{{ current_user.username }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <!-- 借阅量排名 -->
+            <div class="col-md-4">
+                <div class="d-flex align-items-center p-3 rounded-3 h-100 rank-tile rank-tile-primary">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width: 48px; height: 48px; background: #4361ee22;">
+                            <i class="bi bi-journal-arrow-down text-primary" style="font-size: 1.3rem;"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-muted small">借阅量排名</div>
+                        <div class="h4 mb-0 text-primary">
+                            {% if my_rank_borrow %}第 {{ my_rank_borrow }} 名{% else %}暂无排名{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 等级排名 -->
+            <div class="col-md-4">
+                <div class="d-flex align-items-center p-3 rounded-3 h-100 rank-tile rank-tile-success">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width: 48px; height: 48px; background: #19875422;">
+                            <i class="bi bi-star-fill text-success" style="font-size: 1.3rem;"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-muted small">等级排名</div>
+                        <div class="h4 mb-0 text-success">
+                            {% if my_rank_level %}第 {{ my_rank_level }} 名{% else %}暂无排名{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 当前等级 / 称号 -->
+            <div class="col-md-4">
+                <div class="d-flex align-items-center p-3 rounded-3 h-100 rank-tile rank-tile-warning">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width: 48px; height: 48px; background: #ffc10722;">
+                            <i class="bi bi-award-fill text-warning" style="font-size: 1.3rem;"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-muted small">当前等级 / 称号</div>
+                        <div class="h4 mb-0 text-warning">
+                            {% if current_user.reading_stat %}
+                                Lv.{{ current_user.reading_stat.level }}
+                                <span class="h6">{{ current_user.reading_stat.title }}</span>
+                            {% else %}
+                                暂无
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ===== 排行榜 Tab 切换 ===== -->
+<ul class="nav nav-tabs mb-3" id="rankingTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="borrow-tab" data-bs-toggle="tab" data-bs-target="#borrow-ranking" type="button">
+            <i class="bi bi-journal-arrow-down me-1"></i> 借阅量排行
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="level-tab" data-bs-toggle="tab" data-bs-target="#level-ranking" type="button">
+            <i class="bi bi-star me-1"></i> 等级排行
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="streak-tab" data-bs-toggle="tab" data-bs-target="#streak-ranking" type="button">
+            <i class="bi bi-fire me-1"></i> 连续借阅排行
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="rankingTabsContent">
+
+    <!-- ===== 借阅量排行 ===== -->
+    <div class="tab-pane fade show active" id="borrow-ranking" role="tabpanel">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-journal-arrow-down text-primary me-2"></i>
+                    借阅量排行榜
+                    <span class="text-muted small fw-normal ms-2">按累计借阅图书数量排名</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 90px;" class="text-center">排名</th>
+                                <th>用户名</th>
+                                <th style="width: 180px;">关键数据</th>
+                                <th style="width: 180px;">等级称号</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in top_borrowers %}
+                            {% set rank = loop.index %}
+                            {% set is_me = current_user.is_authenticated and user.id == current_user.id %}
+                            <tr class="{% if is_me %}rank-me{% elif rank == 1 %}rank-gold{% elif rank == 2 %}rank-silver{% elif rank == 3 %}rank-bronze{% endif %}">
+                                <td class="text-center">
+                                    {% if rank == 1 %}<span class="rank-medal">🥇</span>
+                                    {% elif rank == 2 %}<span class="rank-medal">🥈</span>
+                                    {% elif rank == 3 %}<span class="rank-medal">🥉</span>
+                                    {% else %}<span class="badge bg-light text-secondary rounded-pill">{{ rank }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rank-avatar me-2">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <span class="fw-medium">{{ user.username }}</span>
+                                        {% if is_me %}<span class="badge bg-primary ms-2">我</span>{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-primary">
+                                        <i class="bi bi-journal-arrow-down"></i> {{ user.total_books_borrowed }} 本
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">
+                                        Lv.{{ user.level }} {{ user.title }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox" style="font-size: 2rem; opacity: .3;"></i>
+                                    <div class="mt-2">暂无排名数据</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 等级排行 ===== -->
+    <div class="tab-pane fade" id="level-ranking" role="tabpanel">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-star text-primary me-2"></i>
+                    等级排行榜
+                    <span class="text-muted small fw-normal ms-2">按经验值等级排名</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 90px;" class="text-center">排名</th>
+                                <th>用户名</th>
+                                <th style="width: 180px;">关键数据</th>
+                                <th style="width: 180px;">等级称号</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in top_levels %}
+                            {% set rank = loop.index %}
+                            {% set is_me = current_user.is_authenticated and user.id == current_user.id %}
+                            <tr class="{% if is_me %}rank-me{% elif rank == 1 %}rank-gold{% elif rank == 2 %}rank-silver{% elif rank == 3 %}rank-bronze{% endif %}">
+                                <td class="text-center">
+                                    {% if rank == 1 %}<span class="rank-medal">🥇</span>
+                                    {% elif rank == 2 %}<span class="rank-medal">🥈</span>
+                                    {% elif rank == 3 %}<span class="rank-medal">🥉</span>
+                                    {% else %}<span class="badge bg-light text-secondary rounded-pill">{{ rank }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rank-avatar me-2">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <span class="fw-medium">{{ user.username }}</span>
+                                        {% if is_me %}<span class="badge bg-primary ms-2">我</span>{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-success">
+                                        <i class="bi bi-lightning-charge-fill"></i> {{ user.exp }} EXP
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">
+                                        Lv.{{ user.level }} {{ user.title }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox" style="font-size: 2rem; opacity: .3;"></i>
+                                    <div class="mt-2">暂无排名数据</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 连续借阅排行 ===== -->
+    <div class="tab-pane fade" id="streak-ranking" role="tabpanel">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-fire text-danger me-2"></i>
+                    连续借阅排行榜
+                    <span class="text-muted small fw-normal ms-2">按最长连续借阅天数排名</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 90px;" class="text-center">排名</th>
+                                <th>用户名</th>
+                                <th style="width: 180px;">关键数据</th>
+                                <th style="width: 180px;">等级称号</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in top_streaks %}
+                            {% set rank = loop.index %}
+                            {% set is_me = current_user.is_authenticated and user.id == current_user.id %}
+                            <tr class="{% if is_me %}rank-me{% elif rank == 1 %}rank-gold{% elif rank == 2 %}rank-silver{% elif rank == 3 %}rank-bronze{% endif %}">
+                                <td class="text-center">
+                                    {% if rank == 1 %}<span class="rank-medal">🥇</span>
+                                    {% elif rank == 2 %}<span class="rank-medal">🥈</span>
+                                    {% elif rank == 3 %}<span class="rank-medal">🥉</span>
+                                    {% else %}<span class="badge bg-light text-secondary rounded-pill">{{ rank }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rank-avatar me-2">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <span class="fw-medium">{{ user.username }}</span>
+                                        {% if is_me %}<span class="badge bg-primary ms-2">我</span>{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-danger">
+                                        <i class="bi bi-fire"></i> {{ user.longest_streak }} 天
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary">
+                                        {{ user.title }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox" style="font-size: 2rem; opacity: .3;"></i>
+                                    <div class="mt-2">暂无排名数据</div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+/* ===== Tab 样式 ===== */
+.nav-tabs .nav-link {
+    color: #6c757d;
+    font-weight: 500;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.75rem 1.25rem;
+}
+.nav-tabs .nav-link:hover {
+    border-bottom-color: #4361ee;
+    color: #4361ee;
+    isolation: isolate;
+}
+.nav-tabs .nav-link.active {
+    color: #4361ee;
+    background-color: transparent;
+    border-bottom: 2px solid #4361ee;
+}
+.nav-tabs {
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* ===== 我的排名卡片 ===== */
+.rank-tile {
+    border: 1px solid #eef0f3;
+    transition: transform .15s ease;
+}
+.rank-tile:hover {
+    transform: translateY(-2px);
+}
+
+/* ===== 头像圆圈 ===== */
+.rank-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4361ee, #7c3aed);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+/* ===== 奖牌 emoji ===== */
+.rank-medal {
+    font-size: 1.5rem;
+    line-height: 1;
+    display: inline-block;
+}
+
+/* ===== 前三名行底色（金银铜） ===== */
+.rank-gold {
+    background-color: #fff9e6 !important;
+}
+.rank-silver {
+    background-color: #f3f4f6 !important;
+}
+.rank-bronze {
+    background-color: #fdf3e7 !important;
+}
+
+/* ===== 当前登录用户行高亮 ===== */
+.rank-me {
+    background-color: #e7f0ff !important;
+    box-shadow: inset 3px 0 0 #4361ee;
+}
+.rank-me td {
+    font-weight: 600;
+}
+
+/* ===== 表格行 hover 保留高亮 ===== */
+.table-hover tbody tr:hover {
+    --bs-table-accent-bg: rgba(67, 97, 238, .06);
+}
+</style>
+{% endblock %}

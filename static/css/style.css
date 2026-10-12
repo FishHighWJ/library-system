@@ -1,0 +1,140 @@
+/* ============================================
+   图书馆管理系统 - 自定义样式
+   在 Bootstrap 基础上增强视觉效果
+   ============================================ */
+
+:root {
+    --primary-color: #4361ee;
+    --bg-light: #f8f9fa;
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: -apple-system, "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---- 导航栏增强 ---- */
+.navbar-brand {
+    font-size: 1.3rem;
+    letter-spacing: 0.5px;
+}
+
+/* ---- 图书卡片 ---- */
+.book-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+.book-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !important;
+}
+
+/* ---- 图书封面占位 ---- */
+.book-cover {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+}
+
+.book-cover-placeholder {
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    border-radius: 8px;
+    width: 100%;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+}
+
+.book-cover-placeholder-large {
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    border-radius: 8px;
+    width: 100%;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+/* ---- 统计卡片 ---- */
+.stat-card {
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+/* ---- 个人中心头像 ---- */
+.avatar-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+}
+
+/* ---- 表格增强 ---- */
+.table > :not(caption) > * > * {
+    padding: 0.6rem 0.75rem;
+}
+
+/* ---- 分页居中 ---- */
+.pagination {
+    margin-bottom: 0;
+}
+
+/* ---- 响应式调整 ---- */
+@media (max-width: 768px) {
+    .book-cover-placeholder-large {
+        height: 150px;
+    }
+    .error-code {
+        font-size: 5rem;
+    }
+}
+
+/* ---- 滚动条美化 ---- */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* ---- 链接动画 ---- */
+a {
+    transition: color 0.15s ease;
+}
+
+/* ---- 表单聚焦增强 ---- */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.15);
+}
+
+/* ---- 按钮微调 ---- */
+.btn {
+    font-weight: 500;
+}

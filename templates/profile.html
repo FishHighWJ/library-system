@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}个人中心 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 个人信息卡 -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm text-center">
+            <div class="card-body p-4">
+                <div class="avatar-circle mx-auto mb-3">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <h5>{{ current_user.username }}</h5>
+                <p class="text-muted mb-2">
+                    {% if current_user.is_admin %}
+                    <span class="badge bg-warning text-dark">管理员</span>
+                    {% else %}
+                    <span class="badge bg-info">读者</span>
+                    {% endif %}
+                </p>
+                <hr>
+                <table class="table table-sm table-borderless text-start">
+                    <tr>
+                        <td class="text-muted" style="width:70px;"><i class="bi bi-envelope"></i> 邮箱</td>
+                        <td>{{ current_user.email }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-phone"></i> 手机</td>
+                        <td>{{ current_user.phone or '未填写' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-calendar"></i> 注册</td>
+                        <td>{{ current_user.created_at.strftime('%Y-%m-%d') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 借阅统计 -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-pie-chart"></i> 借阅概况</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h4 text-primary mb-0">{{ borrows|length }}</div>
+                        <div class="text-muted small">总借阅次数</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-success mb-0">
+                            {{ borrows|selectattr('status','equalto','returned')|list|length }}
+                        </div>
+                        <div class="text-muted small">已归还</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-warning mb-0">
+                            {{ borrows|rejectattr('status','equalto','returned')|list|length }}
+                        </div>
+                        <div class="text-muted small">借阅中</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近借阅 -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-clock-history"></i> 最近借阅记录</h6>
+                <a href="{{ url_for('borrow.my_borrows') }}" class="btn btn-sm btn-outline-primary">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>书名</th>
+                            <th>借阅日期</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in borrows[:5] %}
+                        <tr>
+                            <td>{{ r.book.title }}</td>
+                            <td>{{ r.borrow_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                {% if r.status == 'returned' %}
+                                <span class="badge bg-success">已归还</span>
+                                {% elif r.is_overdue %}
+                                <span class="badge bg-danger">已逾期</span>
+                                {% else %}
+                                <span class="badge bg-primary">借阅中</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">暂无借阅记录</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

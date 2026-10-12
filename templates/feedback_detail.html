@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block title %}反馈详情 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb mb-0">
+        {% if current_user.is_admin %}
+        <li class="breadcrumb-item"><a href="{{ url_for('feedback.feedback_manage') }}">反馈管理</a></li>
+        {% else %}
+        <li class="breadcrumb-item"><a href="{{ url_for('feedback.feedback_list') }}">我的反馈</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">反馈详情</li>
+    </ol>
+</nav>
+
+<div class="row g-3">
+    <!-- 左侧主体 -->
+    <div class="col-lg-8">
+        <!-- 反馈基本信息 -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap">
+                <h5 class="mb-0"><i class="bi bi-chat-text"></i> 反馈详情</h5>
+                <div class="d-flex gap-1 flex-wrap">
+                    {# 类型标签 #}
+                    {% if fb.feedback_type == 'suggestion' %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-lightbulb"></i> 功能建议</span>
+                    {% elif fb.feedback_type == 'book_request' %}
+                    <span class="badge bg-primary"><i class="bi bi-bookmark-plus"></i> 图书荐购</span>
+                    {% elif fb.feedback_type == 'bug_report' %}
+                    <span class="badge bg-danger"><i class="bi bi-bug"></i> 问题报告</span>
+                    {% elif fb.feedback_type == 'complaint' %}
+                    <span class="badge bg-secondary"><i class="bi bi-exclamation-octagon"></i> 投诉</span>
+                    {% endif %}
+
+                    {# 状态标签 #}
+                    {% if fb.status == 'pending' %}
+                    <span class="badge bg-secondary"><i class="bi bi-clock"></i> 待处理</span>
+                    {% elif fb.status == 'reviewing' %}
+                    <span class="badge bg-info text-dark"><i class="bi bi-eye"></i> 处理中</span>
+                    {% elif fb.status == 'accepted' %}
+                    <span class="badge bg-success"><i class="bi bi-check2-circle"></i> 已采纳</span>
+                    {% elif fb.status == 'rejected' %}
+                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> 已驳回</span>
+                    {% elif fb.status == 'resolved' %}
+                    <span class="badge bg-primary"><i class="bi bi-check2-all"></i> 已解决</span>
+                    {% endif %}
+
+                    {# 优先级 #}
+                    {% if fb.priority >= 2 %}
+                    <span class="badge bg-danger"><i class="bi bi-flag-fill"></i> 紧急</span>
+                    {% elif fb.priority == 1 %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-flag"></i> 重要</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <h4 class="card-title mb-3">{{ fb.title }}</h4>
+
+                <div class="mb-3">
+                    <h6 class="text-muted small text-uppercase mb-2">
+                        <i class="bi bi-text-left"></i> 详细内容
+                    </h6>
+                    <div class="bg-light rounded p-3" style="white-space: pre-wrap;">{{ fb.content }}</div>
+                </div>
+
+                <hr>
+                <div class="row text-muted small">
+                    <div class="col-md-6 mb-1">
+                        <i class="bi bi-person"></i> 提交人：
+                        <span class="text-dark">{{ fb.submitter.username }}</span>
+                    </div>
+                    <div class="col-md-6 mb-1">
+                        <i class="bi bi-clock"></i> 提交时间：
+                        <span class="text-dark">{{ fb.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    {% if fb.replied_at %}
+                    <div class="col-md-6 mb-1">
+                        <i class="bi bi-reply"></i> 回复时间：
+                        <span class="text-dark">{{ fb.replied_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# 荐购图书信息卡片 #}
+        {% if fb.feedback_type == 'book_request' %}
+        <div class="card shadow-sm mt-3 border-primary">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-bookmark-plus text-primary"></i> 荐购图书信息</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless table-sm mb-0">
+                    <tr>
+                        <td class="text-muted" style="width:100px;"><i class="bi bi-book"></i> 书名</td>
+                        <td class="fw-semibold">{{ fb.book_title or '未填写' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-person"></i> 作者</td>
+                        <td>{{ fb.book_author or '未填写' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-upc-scan"></i> ISBN</td>
+                        <td>{{ fb.book_isbn or '未填写' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-building"></i> 出版社</td>
+                        <td>{{ fb.book_publisher or '未填写' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-currency-yen"></i> 价格</td>
+                        <td>
+                            {% if fb.book_price %}
+                            <span class="text-danger fw-bold">¥{{ "%.2f"|format(fb.book_price) }}</span>
+                            {% else %}未填写{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted"><i class="bi bi-tags"></i> 分类建议</td>
+                        <td>
+                            {% if fb.book_category %}
+                            <span class="badge bg-info">{{ fb.book_category }}</span>
+                            {% else %}未填写{% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {# 管理员回复区域 #}
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-reply-fill"></i> 管理员回复</h6>
+            </div>
+            <div class="card-body">
+                {% if fb.admin_reply %}
+                <div class="alert alert-info mb-0" style="white-space: pre-wrap;">
+                    <i class="bi bi-chat-quote"></i>
+                    {{ fb.admin_reply }}
+                    {% if fb.replied_at %}
+                    <div class="text-muted small mt-2">
+                        <i class="bi bi-clock"></i> {{ fb.replied_at.strftime('%Y-%m-%d %H:%M') }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-hourglass-split" style="font-size: 2.5rem;"></i>
+                    <p class="mt-2 mb-0">暂无回复，请耐心等待管理员处理</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# 管理员回复表单 #}
+        {% if current_user.is_admin %}
+        <div class="card shadow-sm mt-3 border-primary">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-pencil-square text-primary"></i> 处理反馈（管理员）</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('feedback.feedback_reply', fb_id=fb.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">回复内容
+                            {% if fb.status != 'rejected' %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        <textarea class="form-control" name="admin_reply" rows="4"
+                                  placeholder="请输入给用户的回复内容……">{{ fb.admin_reply or '' }}</textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">处理状态</label>
+                            <select class="form-select" name="status">
+                                <option value="pending" {{ 'selected' if fb.status == 'pending' }}>
+                                    <i class="bi bi-clock"></i> 待处理
+                                </option>
+                                <option value="reviewing" {{ 'selected' if fb.status == 'reviewing' }}>
+                                    处理中
+                                </option>
+                                <option value="accepted" {{ 'selected' if fb.status == 'accepted' }}>
+                                    已采纳
+                                </option>
+                                <option value="rejected" {{ 'selected' if fb.status == 'rejected' }}>
+                                    已驳回
+                                </option>
+                                <option value="resolved" {{ 'selected' if fb.status == 'resolved' }}>
+                                    已解决
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">优先级</label>
+                            <select class="form-select" name="priority">
+                                <option value="0" {{ 'selected' if fb.priority == 0 }}>
+                                    <i class="bi bi-flag"></i> 普通
+                                </option>
+                                <option value="1" {{ 'selected' if fb.priority == 1 }}>
+                                    重要
+                                </option>
+                                <option value="2" {{ 'selected' if fb.priority >= 2 }}>
+                                    紧急
+                                </option>
+                            </select>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> 优先级用于排序，紧急反馈将优先处理
+                            </small>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> 提交回复
+                        </button>
+
+                        {# 荐购反馈可转为馆藏 #}
+                        {% if fb.feedback_type == 'book_request' and fb.status != 'resolved' %}
+                        <form method="POST" action="{{ url_for('feedback.feedback_convert', fb_id=fb.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('确定将《{{ fb.book_title }}》添加到馆藏吗？将自动标记为已解决。')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-bookmark-check"></i> 转为馆藏
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 右侧操作栏 -->
+    <div class="col-lg-4">
+        {# 评分区域 #}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6><i class="bi bi-star-fill text-warning"></i> 满意度评分</h6>
+                <hr>
+                {% if fb.status == 'resolved' %}
+                    {% if fb.rating and fb.rating > 0 %}
+                    {# 已评分 #}
+                    <div class="text-center py-2">
+                        <div class="mb-2">
+                            {% for i in range(1, 6) %}
+                                {% if i <= fb.rating %}
+                                <i class="bi bi-star-fill text-warning" style="font-size:1.8rem;"></i>
+                                {% else %}
+                                <i class="bi bi-star text-muted" style="font-size:1.8rem;"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <span class="text-muted small">您已评分 {{ fb.rating }} 星，感谢您的反馈！</span>
+                    </div>
+                    {% else %}
+                    {# 可评分 #}
+                    {% if fb.user_id == current_user.id %}
+                    <p class="text-muted small">该反馈已解决，请对处理结果进行评分：</p>
+                    <form method="POST" action="{{ url_for('feedback.feedback_rate', fb_id=fb.id) }}"
+                          id="rateForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="rating" id="rateInput" value="0">
+                        <div class="text-center mb-3">
+                            <span class="rating-stars" id="starGroup" data-target="rateInput" data-form="rateForm">
+                                {% for i in range(1, 6) %}
+                                <i class="bi bi-star rating-star" data-value="{{ i }}"
+                                   style="font-size:2rem; cursor:pointer; color:#ccc;"></i>
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary" id="rateSubmitBtn" disabled>
+                                <i class="bi bi-check-circle"></i> 提交评分
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p class="text-muted small text-center mb-0">等待提交人评分</p>
+                    {% endif %}
+                    {% endif %}
+                {% else %}
+                <div class="text-center text-muted py-2">
+                    <i class="bi bi-hourglass" style="font-size:2rem;"></i>
+                    <p class="small mt-2 mb-0">反馈解决后可进行评分</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# 返回按钮 #}
+        <div class="card shadow-sm mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-lightning"></i> 操作</h6>
+                <hr>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('feedback.feedback_manage') }}" class="btn btn-outline-primary w-100 mb-2">
+                    <i class="bi bi-arrow-left"></i> 返回反馈管理
+                </a>
+                {% else %}
+                <a href="{{ url_for('feedback.feedback_list') }}" class="btn btn-outline-primary w-100 mb-2">
+                    <i class="bi bi-arrow-left"></i> 返回我的反馈
+                </a>
+                {% endif %}
+                {% if fb.feedback_type == 'book_request' %}
+                <a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-search"></i> 浏览馆藏
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 星级评分交互
+(function () {
+    var starGroup = document.getElementById('starGroup');
+    if (!starGroup) return;
+
+    var targetId = starGroup.dataset.target;
+    var formId = starGroup.dataset.form;
+    var stars = starGroup.querySelectorAll('.rating-star');
+    var submitBtn = document.getElementById('rateSubmitBtn');
+
+    stars.forEach(function (star) {
+        star.addEventListener('mouseenter', function () {
+            var val = parseInt(star.dataset.value, 10);
+            stars.forEach(function (s) {
+                if (parseInt(s.dataset.value, 10) <= val) {
+                    s.classList.remove('bi-star');
+                    s.classList.add('bi-star-fill');
+                    s.style.color = '#ffc107';
+                } else {
+                    s.classList.remove('bi-star-fill');
+                    s.classList.add('bi-star');
+                    s.style.color = '#ccc';
+                }
+            });
+        });
+
+        star.addEventListener('click', function (e) {
+            e.preventDefault();
+            var val = parseInt(star.dataset.value, 10);
+            var input = document.getElementById(targetId);
+            if (input) input.value = val;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> 提交 ' + val + ' 星评分';
+            }
+            // 锁定选中状态
+            stars.forEach(function (s) {
+                if (parseInt(s.dataset.value, 10) <= val) {
+                    s.classList.remove('bi-star');
+                    s.classList.add('bi-star-fill');
+                    s.style.color = '#ffc107';
+                } else {
+                    s.classList.remove('bi-star-fill');
+                    s.classList.add('bi-star');
+                    s.style.color = '#ccc';
+                }
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

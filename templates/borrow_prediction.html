@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}借阅量预测 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<h3 class="mb-3"><i class="bi bi-graph-up"></i> 借阅量预测</h3>
+<p class="text-muted small mb-4">
+    基于线性回归（趋势 + 星期几 one-hot）预测未来 14 天借阅量，残差标准差 ×1.96 作为 95% 置信区间。
+</p>
+
+{% if error %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> {{ error }}
+</div>
+{% else %}
+
+<!-- 系数卡片：展示星期几相对效应（面试可演示"周末 vs 工作日"） -->
+<div class="row g-2 mb-3">
+    {% for c in dow_coef %}
+    <div class="col-6 col-lg-{{ 12 // dow_coef|length if dow_coef|length <= 4 else 1 }}">
+        <div class="card text-center shadow-sm {{ 'border-success' if c.value >= (dow_coef[0].value if dow_coef else 0) else 'border-secondary' }}">
+            <div class="card-body py-2 px-1">
+                <div class="text-muted small">{{ c.label }}</div>
+                <div class="h6 mb-0">{{ '%.2f'|format(c.value) }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 主图表：实际值 + 拟合值 + 预测值 + CI 阴影 -->
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-graph-up"></i> 借阅量趋势与预测</h6>
+        <span class="text-muted small">历史 {{ history_days }} 天 + 预测 {{ horizon }} 天</span>
+    </div>
+    <div class="card-body">
+        <div id="chart-forecast" style="height: 420px;"></div>
+    </div>
+</div>
+
+<!-- 模型解释卡 -->
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-info-circle"></i> 模型说明</h6></div>
+            <div class="card-body small">
+                <p class="mb-2"><strong>特征：</strong>线性日趋势 + 星期二~星期日 one-hot（周一为基准防共线性）。</p>
+                <p class="mb-2"><strong>为何选 LR：</strong>图书馆流量有强星期效应，线性回归能捕捉周季节性且系数可解释；ARIMA 对小数据过度工程需平稳性检验。</p>
+                <p class="mb-0"><strong>置信区间：</strong>残差标准差 × 1.96，统计上诚实（非过拟合的窄带）。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-bar-chart"></i> 回归系数</h6></div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>项</th><th>系数</th></tr></thead>
+                    <tbody>
+                        {% for name, val in coef.items() %}
+                        <tr><td>{{ name }}</td><td>{{ '%.4f'|format(val) }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if not error %}
+<script>
+(function () {
+    var dates = {{ dates | tojson }};
+    var actual = {{ actual | tojson }};
+    var fitted = {{ fitted | tojson }};
+    var predicted = {{ predicted | tojson }};
+    var ciLower = {{ ci_lower | tojson }};
+    var ciUpper = {{ ci_upper | tojson }};
+    var historyDays = {{ history_days }};
+
+    var el = document.getElementById('chart-forecast');
+    if (!el) return;
+    var chart = echarts.init(el);
+
+    // 切分点：历史段 vs 预测段
+    var splitIdx = historyDays; // dates[splitIdx-1] 是历史最后一天
+
+    chart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        legend: { data: ['实际值', '历史拟合', '预测值', '95%置信区间'], top: 0 },
+        grid: { left: 50, right: 30, top: 40, bottom: 60 },
+        xAxis: {
+            type: 'category',
+            data: dates,
+            axisLabel: {
+                color: '#6c757d',
+                interval: Math.floor(dates.length / 12),
+                formatter: function (v) { return v.substring(5); } // 只显示 MM-DD
+            }
+        },
+        yAxis: { type: 'value', minInterval: 1, name: '借阅次数', axisLabel: { color: '#6c757d' } },
+        series: [
+            // CI 阴影带（堆叠：下界 + 带宽）
+            {
+                name: '95%置信区间',
+                type: 'line',
+                data: ciLower,
+                lineStyle: { opacity: 0 },
+                stack: 'ci-band',
+                symbol: 'none',
+                showInLegend: false
+            },
+            {
+                name: '95%置信区间',
+                type: 'line',
+                data: ciUpper.map(function (v, i) {
+                    return (v != null && ciLower[i] != null) ? v - ciLower[i] : null;
+                }),
+                lineStyle: { opacity: 0 },
+                areaStyle: { color: 'rgba(255,193,7,0.25)' },
+                stack: 'ci-band',
+                symbol: 'none'
+            },
+            // 实际值（实线，仅历史段）
+            {
+                name: '实际值',
+                type: 'line',
+                data: actual,
+                smooth: true,
+                itemStyle: { color: '#0d6efd' },
+                lineStyle: { width: 2 }
+            },
+            // 历史拟合（虚线）
+            {
+                name: '历史拟合',
+                type: 'line',
+                data: fitted,
+                smooth: true,
+                symbol: 'none',
+                itemStyle: { color: '#198754' },
+                lineStyle: { width: 1.5, type: 'dashed' }
+            },
+            // 预测值（虚线，仅预测段）
+            {
+                name: '预测值',
+                type: 'line',
+                data: predicted,
+                smooth: true,
+                itemStyle: { color: '#fd7e14' },
+                lineStyle: { width: 2, type: 'dashed' }
+            }
+        ]
+    });
+    window.addEventListener('resize', function () { chart.resize(); });
+})();
+</script>
+{% endif %}
+{% endblock %}

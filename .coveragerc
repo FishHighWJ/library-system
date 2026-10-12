@@ -1,0 +1,16 @@
+[run]
+# 统计时排除非业务代码
+omit =
+    init_db.py
+    wsgi.py
+    tests/*
+    */site-packages/*
+
+[report]
+# 排除空 __init__ 和纯配置
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if __name__ == '__main__':

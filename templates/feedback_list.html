@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}我的反馈 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-chat-left-text"></i> 我的反馈</h5>
+        <a href="{{ url_for('feedback.feedback_new') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-circle"></i> 提交新反馈
+        </a>
+    </div>
+    <div class="card-body">
+        {% if feedbacks %}
+        <div class="list-group">
+            {% for fb in feedbacks %}
+            <a href="{{ url_for('feedback.feedback_detail', fb_id=fb.id) }}"
+               class="list-group-item list-group-item-action border-0 border-start border-{{ 'primary' if not fb.is_read else 'light' }} mb-2 rounded shadow-sm text-decoration-none">
+                <div class="d-flex justify-content-between align-items-start flex-wrap">
+                    <div class="me-auto">
+                        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                            {# 类型图标 #}
+                            {% if fb.feedback_type == 'suggestion' %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-lightbulb"></i> 功能建议
+                            </span>
+                            {% elif fb.feedback_type == 'book_request' %}
+                            <span class="badge bg-primary">
+                                <i class="bi bi-bookmark-plus"></i> 图书荐购
+                            </span>
+                            {% elif fb.feedback_type == 'bug_report' %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-bug"></i> 问题报告
+                            </span>
+                            {% elif fb.feedback_type == 'complaint' %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-exclamation-octagon"></i> 投诉
+                            </span>
+                            {% endif %}
+
+                            {# 状态标签 #}
+                            {% if fb.status == 'pending' %}
+                            <span class="badge bg-secondary"><i class="bi bi-clock"></i> 待处理</span>
+                            {% elif fb.status == 'reviewing' %}
+                            <span class="badge bg-info text-dark"><i class="bi bi-eye"></i> 处理中</span>
+                            {% elif fb.status == 'accepted' %}
+                            <span class="badge bg-success"><i class="bi bi-check2-circle"></i> 已采纳</span>
+                            {% elif fb.status == 'rejected' %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i> 已驳回</span>
+                            {% elif fb.status == 'resolved' %}
+                            <span class="badge bg-primary"><i class="bi bi-check2-all"></i> 已解决</span>
+                            {% endif %}
+
+                            {% if fb.priority >= 2 %}
+                            <span class="badge bg-danger"><i class="bi bi-flag-fill"></i> 紧急</span>
+                            {% elif fb.priority == 1 %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-flag"></i> 重要</span>
+                            {% endif %}
+                        </div>
+                        <h6 class="mb-1 text-dark">{{ fb.title }}</h6>
+                        <p class="text-muted small mb-1 text-truncate" style="max-width: 60ch;">
+                            {{ fb.content }}
+                        </p>
+
+                        {# 管理员回复摘要 #}
+                        {% if fb.admin_reply %}
+                        <div class="alert alert-info py-1 px-2 mb-1 small">
+                            <i class="bi bi-reply-fill"></i>
+                            管理员回复：{{ fb.admin_reply[:80] }}{{ '……' if fb.admin_reply|length > 80 else '' }}
+                        </div>
+                        {% endif %}
+
+                        {# 已解决且未评分，显示评分按钮 #}
+                        {% if fb.status == 'resolved' and (not fb.rating or fb.rating == 0) %}
+                        <div class="mt-1" onclick="event.preventDefault(); event.stopPropagation();">
+                            <span class="text-muted small me-1">请评分：</span>
+                            <form method="POST" action="{{ url_for('feedback.feedback_rate', fb_id=fb.id) }}"
+                                  class="d-inline rating-form" id="rateForm-{{ fb.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="rating" id="rateInput-{{ fb.id }}" value="0">
+                                <span class="rating-stars" data-target="rateInput-{{ fb.id }}" data-form="rateForm-{{ fb.id }}">
+                                    {% for i in range(1, 6) %}
+                                    <i class="bi bi-star rating-star" data-value="{{ i }}"
+                                       style="font-size:1.2rem; cursor:pointer; color:#ccc;"></i>
+                                    {% endfor %}
+                                </span>
+                            </form>
+                        </div>
+                        {% elif fb.status == 'resolved' and fb.rating and fb.rating > 0 %}
+                        <div class="mt-1 small">
+                            <span class="text-muted">您的评分：</span>
+                            {% for i in range(1, 6) %}
+                                {% if i <= fb.rating %}
+                                <i class="bi bi-star-fill text-warning"></i>
+                                {% else %}
+                                <i class="bi bi-star text-muted"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="text-end text-muted small ms-3">
+                        <div><i class="bi bi-clock"></i> {{ fb.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="mt-1">
+                            <i class="bi bi-chevron-right"></i> 查看详情
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {# 分页 #}
+        {% if pagination and pagination.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                    <a class="page-link" href="{{ url_for('feedback.feedback_list', page=pagination.prev_num) }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in pagination.iter_pages() %}
+                <li class="page-item {{ 'active' if p == pagination.page }}">
+                    <a class="page-link" href="{{ url_for('feedback.feedback_list', page=p) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                    <a class="page-link" href="{{ url_for('feedback.feedback_list', page=pagination.next_num) }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+            <h5 class="text-muted mt-3">您还没有提交过反馈</h5>
+            <p class="text-muted">欢迎提出您的意见建议或荐购图书</p>
+            <a href="{{ url_for('feedback.feedback_new') }}" class="btn btn-primary mt-2">
+                <i class="bi bi-plus-circle"></i> 提交第一条反馈
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 星级评分交互
+(function () {
+    document.querySelectorAll('.rating-stars').forEach(function (starGroup) {
+        var targetId = starGroup.dataset.target;
+        var formId = starGroup.dataset.form;
+        var stars = starGroup.querySelectorAll('.rating-star');
+
+        stars.forEach(function (star) {
+            // 鼠标悬停高亮
+            star.addEventListener('mouseenter', function () {
+                var val = parseInt(star.dataset.value, 10);
+                stars.forEach(function (s) {
+                    if (parseInt(s.dataset.value, 10) <= val) {
+                        s.classList.remove('bi-star');
+                        s.classList.add('bi-star-fill');
+                        s.style.color = '#ffc107';
+                    } else {
+                        s.classList.remove('bi-star-fill');
+                        s.classList.add('bi-star');
+                        s.style.color = '#ccc';
+                    }
+                });
+            });
+
+            // 点击提交
+            star.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var val = parseInt(star.dataset.value, 10);
+                var input = document.getElementById(targetId);
+                if (input) input.value = val;
+                var form = document.getElementById(formId);
+                if (form) {
+                    if (confirm('确定为 ' + val + ' 星评分？')) {
+                        form.submit();
+                    }
+                }
+            });
+        });
+
+        // 鼠标离开重置
+        starGroup.addEventListener('mouseleave', function () {
+            stars.forEach(function (s) {
+                s.classList.remove('bi-star-fill');
+                s.classList.add('bi-star');
+                s.style.color = '#ccc';
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

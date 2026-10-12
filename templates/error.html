@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}错误 {{ code }}{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <div class="error-code">{{ code }}</div>
+    <h4 class="text-muted">{{ message }}</h4>
+    <a href="{{ url_for('books.index') }}" class="btn btn-primary mt-3">
+        <i class="bi bi-house"></i> 返回首页
+    </a>
+</div>
+
+<style>
+.error-code {
+    font-size: 8rem;
+    font-weight: bold;
+    color: #dee2e6;
+    line-height: 1;
+}
+</style>
+{% endblock %}

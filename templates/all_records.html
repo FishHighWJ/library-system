@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}借阅记录管理 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-clipboard-data"></i> 全部借阅记录</h5>
+        <div class="btn-group btn-group-sm">
+            <a href="{{ url_for('borrow.all_records') }}" class="btn btn-outline-secondary {{ 'active' if not status_filter }}">全部</a>
+            <a href="{{ url_for('borrow.all_records', status='borrowed') }}" class="btn btn-outline-secondary {{ 'active' if status_filter == 'borrowed' }}">借阅中</a>
+            <a href="{{ url_for('borrow.all_records', status='returned') }}" class="btn btn-outline-secondary {{ 'active' if status_filter == 'returned' }}">已归还</a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if records %}
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>读者</th>
+                    <th>书名</th>
+                    <th>借阅日期</th>
+                    <th>应还日期</th>
+                    <th>归还日期</th>
+                    <th>状态</th>
+                    <th>罚款</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td>{{ r.id }}</td>
+                    <td>{{ r.user.username }}</td>
+                    <td>
+                        <a href="{{ url_for('books.book_detail', book_id=r.book.id) }}" class="text-decoration-none">
+                            {{ r.book.title }}
+                        </a>
+                    </td>
+                    <td>{{ r.borrow_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ r.due_date.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ r.return_date.strftime('%Y-%m-%d') if r.return_date else '-' }}</td>
+                    <td>
+                        {% if r.status == 'returned' %}
+                        <span class="badge bg-success">已归还</span>
+                        {% elif r.is_overdue %}
+                        <span class="badge bg-danger">已逾期</span>
+                        {% else %}
+                        <span class="badge bg-primary">借阅中</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.fine > 0 %}
+                        <span class="text-danger">¥{{ "%.1f"|format(r.fine) }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+            <h5 class="text-muted mt-3">暂无借阅记录</h5>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if pagination and pagination.pages > 1 %}
+    <div class="card-footer bg-white">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                    <a class="page-link" href="{{ url_for('borrow.all_records', page=pagination.prev_num, status=status_filter) }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in pagination.iter_pages() %}
+                <li class="page-item {{ 'active' if p == pagination.page }}">
+                    <a class="page-link" href="{{ url_for('borrow.all_records', page=p, status=status_filter) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                    <a class="page-link" href="{{ url_for('borrow.all_records', page=pagination.next_num, status=status_filter) }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

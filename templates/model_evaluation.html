@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}模型评估 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<h3 class="mb-3"><i class="bi bi-clipboard2-pulse"></i> 模型评估</h3>
+<p class="text-muted small mb-4">
+    时序交叉验证（前 {{ train_size }} 天训练 / 后 {{ test_size }} 天验证），量化借阅量预测模型的预测精度。
+</p>
+
+{% if error %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i> {{ error }}
+</div>
+{% else %}
+
+<!-- 三指标卡：MAE / RMSE / R² -->
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card text-center shadow-sm border-primary">
+            <div class="card-body">
+                <div class="text-muted small"><i class="bi bi-ruler"></i> MAE（平均绝对误差）</div>
+                <div class="h3 mb-0 text-primary">{{ '%.3f'|format(mae) }}</div>
+                <div class="text-muted small">预测平均偏离实际值 {{ '%.2f'|format(mae) }} 次/天</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center shadow-sm border-warning">
+            <div class="card-body">
+                <div class="text-muted small"><i class="bi bi-bullseye"></i> RMSE（均方根误差）</div>
+                <div class="h3 mb-0 text-warning">{{ '%.3f'|format(rmse) }}</div>
+                <div class="text-muted small">对大误差更敏感（惩罚放大）</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center shadow-sm {{ 'border-success' if r2 >= 0.5 else 'border-secondary' }}">
+            <div class="card-body">
+                <div class="text-muted small"><i class="bi bi-graph-up-arrow"></i> R²（决定系数）</div>
+                <div class="h3 mb-0 {{ 'text-success' if r2 >= 0.5 else 'text-secondary' }}">{{ '%.3f'|format(r2) }}</div>
+                <div class="text-muted small">解释了 {{ '%.1f'|format(r2*100) }}% 的方差</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 实际 vs 预测散点图 + 残差直方图 -->
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-diagram-3"></i> 实际值 vs 预测值（散点）</h6>
+            </div>
+            <div class="card-body">
+                <div id="chart-scatter" style="height: 380px;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-bar-chart"></i> 残差分布直方图</h6>
+            </div>
+            <div class="card-body">
+                <div id="chart-residual" style="height: 380px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 模型解释 -->
+<div class="card shadow-sm mt-3">
+    <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-info-circle"></i> 指标说明</h6></div>
+    <div class="card-body small">
+        <p class="mb-2"><strong>MAE（Mean Absolute Error）</strong>：预测值与实际值差值的绝对值的平均，直观反映"平均每天预测偏差多少次"。</p>
+        <p class="mb-2"><strong>RMSE（Root Mean Squared Error）</strong>：均方误差的平方根，对大误差更敏感（平方项惩罚放大），便于对比异常波动。</p>
+        <p class="mb-2"><strong>R²（决定系数）</strong>：模型解释的方差占总方差的比例，范围 [-∞, 1]，0.5+ 即可接受，越接近 1 越好；负值代表还不如直接用均值。</p>
+        <p class="mb-2"><strong>验证方式</strong>：时序交叉验证，前 80% 训练 / 后 20% 验证（不打乱顺序，避免数据泄漏）。</p>
+        <p class="mb-0"><strong>残差分布</strong>：理想状态下应近似正态分布且均值接近 0——若左偏/右偏说明模型系统性高估/低估。</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if not error %}
+<script>
+(function () {
+    var scatter = {{ scatter | tojson }};
+    var histLabels = {{ residual_hist.labels | tojson }};
+    var histCounts = {{ residual_hist.counts | tojson }};
+
+    // ---- 散点图：实际值 vs 预测值 ----
+    var scatterEl = document.getElementById('chart-scatter');
+    if (scatterEl) {
+        var chart1 = echarts.init(scatterEl);
+        var maxAxis = Math.max(
+            Math.max.apply(null, scatter.map(function (p) { return p.value[0]; })),
+            Math.max.apply(null, scatter.map(function (p) { return p.value[1]; }))
+        ) + 2;
+        chart1.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: function (p) {
+                    return p.name + '<br/>实际: ' + p.value[0] + '<br/>预测: ' + p.value[1];
+                }
+            },
+            grid: { left: 50, right: 30, top: 30, bottom: 50 },
+            xAxis: { type: 'value', name: '实际值', nameLocation: 'middle', nameGap: 30, min: 0, max: maxAxis },
+            yAxis: { type: 'value', name: '预测值', min: 0, max: maxAxis },
+            series: [{
+                type: 'scatter',
+                data: scatter,
+                symbolSize: 10,
+                itemStyle: { color: '#0d6efd', opacity: 0.7 },
+            }, {
+                // 理想 y=x 参考线
+                type: 'line',
+                data: [[0, 0], [maxAxis, maxAxis]],
+                lineStyle: { color: '#dc3545', type: 'dashed', width: 1.5 },
+                symbol: 'none',
+                tooltip: { show: false },
+                silent: true
+            }]
+        });
+        window.addEventListener('resize', function () { chart1.resize(); });
+    }
+
+    // ---- 残差直方图 ----
+    var histEl = document.getElementById('chart-residual');
+    if (histEl) {
+        var chart2 = echarts.init(histEl);
+        chart2.setOption({
+            tooltip: { trigger: 'axis' },
+            grid: { left: 50, right: 20, top: 30, bottom: 60 },
+            xAxis: {
+                type: 'category',
+                data: histLabels,
+                axisLabel: { rotate: 45, color: '#6c757d' },
+                name: '残差区间',
+                nameLocation: 'middle',
+                nameGap: 40
+            },
+            yAxis: { type: 'value', name: '天数', minInterval: 1 },
+            series: [{
+                type: 'bar',
+                data: histCounts,
+                itemStyle: {
+                    color: function (p) {
+                        // 中心区间用绿色，两端用橙色
+                        var idx = p.dataIndex;
+                        var mid = Math.floor(histLabels.length / 2);
+                        return Math.abs(idx - mid) <= 1 ? '#198754' : '#fd7e14';
+                    }
+                }
+            }]
+        });
+        window.addEventListener('resize', function () { chart2.resize(); });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

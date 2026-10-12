@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}站内通知 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-bell"></i> 站内通知
+            {% if unread_count is defined and unread_count > 0 %}
+            <span class="badge bg-danger ms-1">{{ unread_count }} 未读</span>
+            {% endif %}
+        </h5>
+        {% if unread_count is defined and unread_count > 0 %}
+        <form method="POST" action="{{ url_for('feedback.mark_all_read') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-check2-all"></i> 全部标记已读
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        {% if notifications %}
+        <div class="list-group list-group-flush">
+            {% for n in notifications %}
+            <div class="list-group-item list-group-item-action {{ '' if n.is_read else 'border-start border-4 border-primary bg-light' }}"
+                 style="{{ '' if n.is_read else 'background-color:#f0f6ff !important;' }}">
+                <div class="d-flex align-items-start gap-3">
+                    {# 类型图标 #}
+                    <div class="flex-shrink-0 pt-1">
+                        {% if n.notification_type == 'due_reminder' %}
+                        <span class="badge bg-info rounded-circle p-2">
+                            <i class="bi bi-bell" style="font-size:1.1rem;"></i>
+                        </span>
+                        {% elif n.notification_type == 'overdue_notice' %}
+                        <span class="badge bg-danger rounded-circle p-2">
+                            <i class="bi bi-exclamation-triangle" style="font-size:1.1rem;"></i>
+                        </span>
+                        {% elif n.notification_type == 'feedback_reply' %}
+                        <span class="badge bg-primary rounded-circle p-2">
+                            <i class="bi bi-chat-dots" style="font-size:1.1rem;"></i>
+                        </span>
+                        {% elif n.notification_type == 'system_notice' %}
+                        <span class="badge bg-success rounded-circle p-2">
+                            <i class="bi bi-megaphone" style="font-size:1.1rem;"></i>
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary rounded-circle p-2">
+                            <i class="bi bi-info-circle" style="font-size:1.1rem;"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    {# 内容 #}
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap">
+                            <h6 class="mb-1 {{ 'fw-bold' if not n.is_read else '' }}">
+                                {{ n.title }}
+                                {% if not n.is_read %}
+                                <span class="badge bg-primary ms-1">未读</span>
+                                {% endif %}
+                            </h6>
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i>
+                                {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                        </div>
+                        <p class="text-muted mb-1 small">{{ n.content }}</p>
+                        <div class="d-flex align-items-center gap-2 mt-1">
+                            {# 类型标签 #}
+                            {% if n.notification_type == 'due_reminder' %}
+                            <span class="badge bg-light text-info border">到期提醒</span>
+                            {% elif n.notification_type == 'overdue_notice' %}
+                            <span class="badge bg-light text-danger border">逾期通知</span>
+                            {% elif n.notification_type == 'feedback_reply' %}
+                            <span class="badge bg-light text-primary border">反馈回复</span>
+                            {% elif n.notification_type == 'system_notice' %}
+                            <span class="badge bg-light text-success border">系统公告</span>
+                            {% endif %}
+
+                            {# 标记已读按钮 #}
+                            {% if not n.is_read %}
+                            <form method="POST" action="{{ url_for('feedback.mark_read', n_id=n.id) }}"
+                                  class="d-inline ms-auto">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-check2"></i> 标记已读
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="badge bg-light text-muted border ms-auto">
+                                <i class="bi bi-check2-circle"></i> 已读
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# 分页 #}
+        {% if pagination and pagination.pages > 1 %}
+        <div class="card-footer bg-white">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                        <a class="page-link" href="{{ url_for('feedback.notifications', page=pagination.prev_num) }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in pagination.iter_pages() %}
+                    <li class="page-item {{ 'active' if p == pagination.page }}">
+                        <a class="page-link" href="{{ url_for('feedback.notifications', page=p) }}">{{ p }}</a>
+                    </li>
+                    {% endfor %}
+                    <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                        <a class="page-link" href="{{ url_for('feedback.notifications', page=pagination.next_num) }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-bell-slash text-muted" style="font-size: 4rem;"></i>
+            <h5 class="text-muted mt-3">暂无通知</h5>
+            <p class="text-muted">您目前没有任何站内通知</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

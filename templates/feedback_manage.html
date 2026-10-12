@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}反馈管理 - 图书馆管理系统{% endblock %}
+
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-inboxes"></i> 反馈管理</h3>
+
+<!-- 统计卡片 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm border-start border-4 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">反馈总数</div>
+                        <div class="h3 mb-0">{{ stats.total }}</div>
+                    </div>
+                    <i class="bi bi-inboxes text-primary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm border-start border-4 border-secondary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">待处理</div>
+                        <div class="h3 mb-0">{{ stats.pending }}</div>
+                    </div>
+                    <i class="bi bi-hourglass-split text-secondary" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm border-start border-4 border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">已采纳</div>
+                        <div class="h3 mb-0">{{ stats.accepted }}</div>
+                    </div>
+                    <i class="bi bi-check2-circle text-success" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card stat-card shadow-sm border-start border-4 border-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">已解决</div>
+                        <div class="h3 mb-0">{{ stats.resolved }}</div>
+                    </div>
+                    <i class="bi bi-check2-all text-info" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 反馈列表 -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <form class="row g-2 align-items-end" method="GET" action="{{ url_for('feedback.feedback_manage') }}">
+            <div class="col-auto">
+                <label class="form-label small mb-0 text-muted">按状态筛选</label>
+                <select class="form-select form-select-sm" name="status" onchange="this.form.submit()">
+                    <option value="">全部状态</option>
+                    <option value="pending" {{ 'selected' if status_filter == 'pending' }}>待处理</option>
+                    <option value="reviewing" {{ 'selected' if status_filter == 'reviewing' }}>处理中</option>
+                    <option value="accepted" {{ 'selected' if status_filter == 'accepted' }}>已采纳</option>
+                    <option value="rejected" {{ 'selected' if status_filter == 'rejected' }}>已驳回</option>
+                    <option value="resolved" {{ 'selected' if status_filter == 'resolved' }}>已解决</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label small mb-0 text-muted">按类型筛选</label>
+                <select class="form-select form-select-sm" name="type" onchange="this.form.submit()">
+                    <option value="">全部类型</option>
+                    <option value="suggestion" {{ 'selected' if type_filter == 'suggestion' }}>功能建议</option>
+                    <option value="book_request" {{ 'selected' if type_filter == 'book_request' }}>图书荐购</option>
+                    <option value="bug_report" {{ 'selected' if type_filter == 'bug_report' }}>问题报告</option>
+                    <option value="complaint" {{ 'selected' if type_filter == 'complaint' }}>投诉</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-funnel"></i> 筛选
+                </button>
+                <a href="{{ url_for('feedback.feedback_manage') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-counterclockwise"></i> 重置
+                </a>
+            </div>
+            <div class="col-auto ms-auto">
+                <span class="badge bg-primary">
+                    共 {{ pagination.total if pagination else feedbacks|length }} 条
+                </span>
+            </div>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        {% if feedbacks %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>提交人</th>
+                        <th>类型</th>
+                        <th>标题</th>
+                        <th>状态</th>
+                        <th>优先级</th>
+                        <th>提交时间</th>
+                        <th class="text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fb in feedbacks %}
+                    <tr>
+                        <td>
+                            <i class="bi bi-person-circle text-muted"></i>
+                            {{ fb.submitter.username }}
+                        </td>
+                        <td>
+                            {% if fb.feedback_type == 'suggestion' %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-lightbulb"></i> 功能建议
+                            </span>
+                            {% elif fb.feedback_type == 'book_request' %}
+                            <span class="badge bg-primary">
+                                <i class="bi bi-bookmark-plus"></i> 图书荐购
+                            </span>
+                            {% elif fb.feedback_type == 'bug_report' %}
+                            <span class="badge bg-danger">
+                                <i class="bi bi-bug"></i> 问题报告
+                            </span>
+                            {% elif fb.feedback_type == 'complaint' %}
+                            <span class="badge bg-secondary">
+                                <i class="bi bi-exclamation-octagon"></i> 投诉
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('feedback.feedback_detail', fb_id=fb.id) }}"
+                               class="text-decoration-none fw-semibold">
+                                {{ fb.title }}
+                            </a>
+                            {% if fb.feedback_type == 'book_request' and fb.book_title %}
+                            <br><small class="text-muted">
+                                <i class="bi bi-book"></i> {{ fb.book_title }}
+                            </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if fb.status == 'pending' %}
+                            <span class="badge bg-secondary"><i class="bi bi-clock"></i> 待处理</span>
+                            {% elif fb.status == 'reviewing' %}
+                            <span class="badge bg-info text-dark"><i class="bi bi-eye"></i> 处理中</span>
+                            {% elif fb.status == 'accepted' %}
+                            <span class="badge bg-success"><i class="bi bi-check2-circle"></i> 已采纳</span>
+                            {% elif fb.status == 'rejected' %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i> 已驳回</span>
+                            {% elif fb.status == 'resolved' %}
+                            <span class="badge bg-primary"><i class="bi bi-check2-all"></i> 已解决</span>
+                            {% endif %}
+                            {% if not fb.admin_reply %}
+                            <span class="badge bg-light text-dark border ms-1" title="尚未回复">
+                                <i class="bi bi-dot"></i>未回复
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if fb.priority >= 2 %}
+                            <span class="badge bg-danger"><i class="bi bi-flag-fill"></i> 紧急</span>
+                            {% elif fb.priority == 1 %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-flag"></i> 重要</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border">普通</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted">
+                            {{ fb.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('feedback.feedback_detail', fb_id=fb.id) }}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> 查看详情
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+            <h5 class="text-muted mt-3">暂无反馈记录</h5>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if pagination and pagination.pages > 1 %}
+    <div class="card-footer bg-white">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                    <a class="page-link"
+                       href="{{ url_for('feedback.feedback_manage', page=pagination.prev_num, status=status_filter, type=type_filter) }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in pagination.iter_pages() %}
+                <li class="page-item {{ 'active' if p == pagination.page }}">
+                    <a class="page-link"
+                       href="{{ url_for('feedback.feedback_manage', page=p, status=status_filter, type=type_filter) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                    <a class="page-link"
+                       href="{{ url_for('feedback.feedback_manage', page=pagination.next_num, status=status_filter, type=type_filter) }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

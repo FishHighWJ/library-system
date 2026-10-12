@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSRF Token for AJAX -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}图书馆管理系统{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.11.0/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- ECharts 5.4 数据可视化（看板/RFM/预测共用） -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- 自定义样式 -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+
+<!-- ===== 顶部导航栏 ===== -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="{{ url_for('books.index') }}">
+            <i class="bi bi-book-half"></i> 图书馆管理系统
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarMain">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('books.index') }}">
+                        <i class="bi bi-grid"></i> 图书列表
+                    </a>
+                </li>
+                {% if current_user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('borrow.my_borrows') }}">
+                        <i class="bi bi-journal-arrow-down"></i> 我的借阅
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('achievement.achievement_center') }}">
+                        <i class="bi bi-trophy"></i> 成就
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('achievement.ranking') }}">
+                        <i class="bi bi-bar-chart"></i> 排行榜
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('feedback.feedback_new') }}">
+                        <i class="bi bi-chat-dots"></i> 反馈荐购
+                    </a>
+                </li>
+                {% endif %}
+                {% if current_user.is_authenticated and current_user.is_admin %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear"></i> 管理后台
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('borrow.dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> 数据看板</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('books.add_book') }}">
+                            <i class="bi bi-plus-circle"></i> 添加图书</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('books.category_list') }}">
+                            <i class="bi bi-tags"></i> 分类管理</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('borrow.all_records') }}">
+                            <i class="bi bi-clipboard-data"></i> 借阅记录</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('borrow.user_list') }}">
+                            <i class="bi bi-people"></i> 用户管理</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('feedback.feedback_manage') }}">
+                            <i class="bi bi-inboxes"></i> 反馈管理
+                            {% if feedback_pending_count is defined and feedback_pending_count > 0 %}
+                            <span class="badge bg-danger ms-1">{{ feedback_pending_count }}</span>
+                            {% endif %}
+                        </a></li>
+                    </ul>
+                </li>
+                {% endif %}
+                {% if current_user.is_authenticated and current_user.is_admin %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-graph-up-arrow"></i> 数据分析
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('borrow.dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> 可视化看板</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('analysis.rfm') }}">
+                            <i class="bi bi-people-fill"></i> RFM 用户分群</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('analysis.prediction') }}">
+                            <i class="bi bi-graph-up"></i> 借阅量预测</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('analysis.evaluation') }}">
+                            <i class="bi bi-clipboard2-pulse"></i> 模型评估</a></li>
+                    </ul>
+                </li>
+                {% endif %}
+            </ul>
+
+            <!-- 右侧用户菜单 -->
+            <ul class="navbar-nav">
+                {% if current_user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link position-relative" href="{{ url_for('feedback.notifications') }}">
+                        <i class="bi bi-bell"></i>
+                        {% if unread_count is defined and unread_count > 0 %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            {{ unread_count }}
+                        </span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i>
+                        {{ current_user.username }}
+                        {% if current_user.is_admin %}
+                        <span class="badge bg-warning text-dark">管理员</span>
+                        {% elif current_user.reading_stat %}
+                        <span class="badge bg-info">Lv.{{ current_user.reading_stat.level }}</span>
+                        {% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                            <i class="bi bi-person"></i> 个人中心</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('achievement.achievement_center') }}">
+                            <i class="bi bi-trophy"></i> 我的成就</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('feedback.feedback_list') }}">
+                            <i class="bi bi-chat-left-text"></i> 我的反馈</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> 退出登录</a></li>
+                    </ul>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('auth.login') }}">
+                        <i class="bi bi-box-arrow-in-right"></i> 登录
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('auth.register') }}">
+                        <i class="bi bi-person-plus"></i> 注册
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- ===== Flash 消息提示 ===== -->
+<div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
+<!-- ===== 主内容区 ===== -->
+<div class="container my-4">
+    {% block content %}{% endblock %}
+</div>
+
+<!-- ===== 页脚 ===== -->
+<footer class="bg-light py-3 mt-5 border-top">
+    <div class="container text-center text-muted small">
+        <span>图书馆图书管理系统</span>
+        <span class="mx-2">|</span>
+        <span>个人项目</span>
+        <span class="mx-2">|</span>
+        <span>Flask + SQLite + Bootstrap + ECharts</span>
+    </div>
+</footer>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<!-- AJAX CSRF 配置 -->
+<script>
+// 自动给所有 AJAX POST 请求附加 CSRF token
+var csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+if (csrfToken) {
+    var origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url) {
+        origOpen.apply(this, arguments);
+        if (method.toUpperCase() === 'POST') {
+            this.setRequestHeader('X-CSRFToken', csrfToken);
+        }
+    };
+}
+</script>
+<!-- 自定义JS -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<!-- 鼓励语录弹窗（一次性：渲染后立即从 session 移除，避免每次跳转重复弹出） -->
+{% set quote = session.pop('last_quote', None) %}
+{% if quote %}
+<div class="modal fade" id="quoteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="modal-body text-center text-white p-5">
+                <div class="mb-3">
+                    <i class="bi bi-quote display-1 opacity-50"></i>
+                </div>
+                <p class="fs-4 fw-bold mb-3" style="line-height: 1.6;">{{ quote['content'] }}</p>
+                <p class="opacity-75 mb-0">—— {{ quote['author'] }}</p>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pb-4" style="background: transparent;">
+                <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">继续阅读</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var quoteModal = new bootstrap.Modal(document.getElementById('quoteModal'));
+        quoteModal.show();
+    });
+</script>
+{% endif %}
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

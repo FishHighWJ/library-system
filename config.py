@@ -65,12 +65,9 @@ class ProductionConfig(Config):
     """生产环境配置"""
     DEBUG = False
 
-    # 生产环境专用密钥（64字节随机十六进制字符串）
-    # 如果设置了环境变量 SECRET_KEY 则优先使用环境变量
-    SECRET_KEY = os.environ.get(
-        "SECRET_KEY",
-        "9a7f3c2b8e1d4f6a5b7c9d8e2f1a3b5c7d9e1f3a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a1b3c5d7e9f0a2b4c6d8e0f2a4b6"
-    )
+    # 生产环境密钥：仅从环境变量读取，不提供任何默认值
+    # 未设置时 create_app() 会拒绝启动（见 app.py），避免使用已知密钥导致 session 可伪造
+    SECRET_KEY = os.environ.get("SECRET_KEY")
 
     # 生产环境强制开启 Session Cookie 安全标志（需 HTTPS）
     SESSION_COOKIE_SECURE = True

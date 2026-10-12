@@ -43,6 +43,14 @@ def create_app(config_name="default"):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
 
+    # 生产环境安全门禁：SECRET_KEY 必须由环境变量提供（在 create_app 内检查而非 config.py
+    # 类体中 raise，后者会导致任何未设该环境变量的环境在 import 时就崩溃）
+    if config_name == "production" and not app.config.get("SECRET_KEY"):
+        raise RuntimeError(
+            "生产环境必须设置环境变量 SECRET_KEY"
+            "（生成方式：python -c \"import secrets; print(secrets.token_hex(32))\"）"
+        )
+
     # ---- 初始化扩展 ----
     db.init_app(app)
     csrf.init_app(app)  # CSRF 防护，自动保护所有 POST 请求
@@ -214,4 +222,6 @@ app = create_app(os.environ.get("FLASK_CONFIG", "default"))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=app.config.get("DEBUG", False))
+    # 默认仅本机访问，避免开发环境 DEBUG 模式下 Werkzeug debugger 暴露到外网
+    # 需要外网访问时设置环境变量 HOST=0.0.0.0
+    app.run(host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", 5000)), debug=app.config.get("DEBUG", False))
